@@ -1,5 +1,3 @@
-# Server for throughput test request. Requires python 2.7. 
-
 import SocketServer
 import datetime as dt
 from datetime import datetime
@@ -8,13 +6,14 @@ import threading
 import socket
 import string
 import random
+import sys
 
 
 # Class to handle connections. Server has no notion of
 # requests from same client. Each request is treated
 # indpendently. PACKET_SIZE and MAXDUR are overwritten
 # by the client.
-  
+
 class StreamHandler(SocketServer.StreamRequestHandler):
   NUMARR = 10
   timeout = 10
@@ -98,13 +97,11 @@ class StreamHandler(SocketServer.StreamRequestHandler):
 
   # Send stream. Data stream is random. Starts with ~ and ends with +.
 
-  def sendData(self):
+  def sendData(self,msgArr):
     time.sleep(0.1)
-    #print "DW"
+    print "DW"
     #fillerStr = "1"
-    msgArr = []
-    for i in range(self.NUMARR): # generate 1 MB of random stream
-      msgArr.append(''.join(random.choice(string.letters+string.digits) for i in range(self.PACKET_SIZE)))
+
     cur_thread = threading.current_thread()
     try:
       self.request.sendall("~") # start
@@ -119,7 +116,10 @@ class StreamHandler(SocketServer.StreamRequestHandler):
     cntmsg = 0
     while True: # loop random data
       try:
-        self.request.sendall(msgArr[cntmsg%self.NUMARR])
+        desired_msgArr = []
+        for item in msgArr:
+          desired_msgArr.append(item[:self.PACKET_SIZE])
+        self.request.sendall(desired_msgArr[cntmsg%self.NUMARR])
         cntmsg = cntmsg + 1
       except:
         self.err += "send_err,"
@@ -144,6 +144,7 @@ class StreamHandler(SocketServer.StreamRequestHandler):
     print self.data
       
   def handle(self):
+    global msgArr
     try:
       self.data = self.rfile.readline().strip()
     except:
@@ -156,29 +157,40 @@ class StreamHandler(SocketServer.StreamRequestHandler):
       testparam[p[0]] = p[1]
 
     try:
+
       self.MAXDUR = int(testparam["duration"])/1000
       self.PACKET_SIZE = int(testparam["pktsize"])
       self.reportgran = int(testparam["reportgran"])*1000 #100000 #microsec
       if testparam["test"] == "UPLINK":
         self.recvData()
       if testparam["test"] == "DOWNLINK":
-        self.sendData()
+        print("i got here")
+        print(sys.getsizeof(msgArr))
+        self.sendData(msgArr)
     except:
       pass
     print "Request:%s.%s test:%s time:%s durationreq:%s msgsize:%s nbytes:%s durationtst:%s err:%s"\
           %(self.request.getpeername()[0],self.request.getpeername()[1],testparam["test"],\
             time.time(),self.MAXDUR,self.PACKET_SIZE,self.nbytes,self.duration,self.err)
     self.request.close()
-
+msgArr = []
 class ThreadedStreamServer(SocketServer.ThreadingMixIn,SocketServer.TCPServer):
   pass
+
 
 if __name__ == "__main__":
   HOST = ""
   PORT = 9999
+  global msgArr
+  if(sys.argv[1]=='1'):
+    for i in range(10): # generate 1 MB of random stream
+        msgArr.append(''.join('0d' for i in range(10000000)))
+  else:
+     for i in range(10): # generate 1 MB of random stream
+      msgArr.append(''.join(random.choice(string.letters+string.digits) for i in range(10000000)))
+  print('created packet, it is safe to connect')
   #SocketServer.socket.SO_SNDBUF = 146988
   #SocketServer.socket.SO_RCVBUF = 146988
   server = ThreadedStreamServer((HOST,PORT),StreamHandler)
   server.serve_forever()
-
 
