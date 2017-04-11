@@ -98,17 +98,30 @@ class StreamHandler(SocketServer.StreamRequestHandler):
   # Send stream. Data stream is random. Starts with ~ and ends with +.
 
   def sendData(self,msgArr):
+    global random_packet_size
     time.sleep(0.1)
     print "DW"
     #fillerStr = "1"
     desired_msgArr = []
-    # if the client does not ask for fully randomized stream, get PACKET_SIZE
-    # packets from the msg_arr created at the start of the server
+    # if the client does not ask for fully randomized stream
     if(self.randomized == 0):
-      for item in msgArr:
-            desired_msgArr.append(item[:self.PACKET_SIZE])
+      # if packet size is less than our locally generated random file
+      if(self.PACKET_SIZE < random_packet_size):
+        for item in msgArr:
+              desired_msgArr.append(item[:self.PACKET_SIZE])
+      else:
+      # if we have generated 1MB random file and the packet size is 10Mb
+      # we will staple 10 , 1MB packets
+          numberof_small_pkts = self.PACKET_SIZE/random_packet_size
+          rest_of_packet = self.PACKET_SIZE - numberof_small_pkts*(random_packet_size)
+          for item in msgArr:
+              desired_msgArr.append(numberof_small_pkts*item[:self.PACKET_SIZE])
+          if(rest_of_packet != 0 ):
+            for j in range(len(desired_msgArr)): # generate 1 MB of random stream
+                    desired_msgArr[j]= desired_msgArr[j]+ ''.join(random.choice(string.letters+string.digits)  for i in range(rest_of_packet))
+          print(len(desired_msgArr[0]))
 
-    # if the client asks for fully randomized stream,
+    # Client wants fully randomized stream
     else:
         for i in range(self.NUMARR): # generate 1 MB of random stream
           desired_msgArr.append(''.join(random.choice(string.letters+string.digits) for i in range(self.PACKET_SIZE)))
@@ -189,9 +202,10 @@ if __name__ == "__main__":
   PORT = 9999
   global msgArr
   msgArr = []
-  # generate 50MB of fully random data
-  for i in range(10): # generate 1 MB of random stream
-      msgArr.append(''.join(random.choice(string.letters+string.digits) for i in range(5000000)))
+  global random_packet_size
+  random_packet_size = 1000000 #1MB 
+  for i in range(10): # generate a random_packet_size Bytes of random stream
+      msgArr.append(''.join(random.choice(string.letters+string.digits) for i in range(random_packet_size)))
   print('created packet, it is now safe to connect')
   #SocketServer.socket.SO_SNDBUF = 146988
   #SocketServer.socket.SO_RCVBUF = 146988
