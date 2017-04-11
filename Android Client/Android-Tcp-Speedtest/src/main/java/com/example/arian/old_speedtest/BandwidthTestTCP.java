@@ -37,7 +37,7 @@ public class BandwidthTestTCP {
 
     private int NUMARR = 10;
     private int TIMEOUT = 10000;
-    private boolean randomized = false;
+    private int randomized = 0;
     private String TAG = "NETALYZR_BWTCP";
     private final boolean debug = true;
     double[] aggrResults;
@@ -54,7 +54,7 @@ public class BandwidthTestTCP {
                              int pSize,      //message size for test. Use small sizes ~100 for EDGE, etc and larger, ~10k, for wifi
                              int maxDur,     //duration of test
                              int reportGran, //granularity of test report, in ms
-                             boolean randomized, //client can ask for a fully randomized stream
+                             int randomized, //client can ask for a fully randomized stream if set to 1
                              CountDownLatch bwlatch){
 
         if (debug) Log.i(TAG,"\n\nstarting tcp bandwidth test to " + server + "\n\n");
@@ -86,7 +86,7 @@ public class BandwidthTestTCP {
             List<Future<String>> futures= new ArrayList<Future<String>>();
             for(int i = 0; i < N_STREAMS; i++) {
                 socket[i] = new Socket(this.server,PORT);
-                futures.add(executorService.submit(new Client(socket[i],i,latch,test,MAXDUR,PACKET_SIZE)));
+                futures.add(executorService.submit(new Client(socket[i],i,latch,test,MAXDUR,PACKET_SIZE,randomized)));
             }
 
             outputBuffer = new StringBuffer();
@@ -126,19 +126,22 @@ public class BandwidthTestTCP {
         private int PACKET_SIZE;
         private CountDownLatch latch;
         private String test;
+        private int randomized;
 
         public Client(Socket socket,
                       int clientid,
                       CountDownLatch latch,
                       String test,
                       int MAXDUR,
-                      int PACKET_SIZE){
+                      int PACKET_SIZE,
+                      int randomized){
             this.socket = socket;
             this.clientid = clientid;
             this.latch = latch;
             this.test = test;
             this.MAXDUR = MAXDUR;
             this.PACKET_SIZE = PACKET_SIZE;
+            this.randomized = randomized;
         }
 
         public String call(){
@@ -159,7 +162,7 @@ public class BandwidthTestTCP {
                 In = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 in = new DataInputStream(socket.getInputStream());
                 out = new DataOutputStream(socket.getOutputStream());
-                String testParam = "test:" + test + " duration:" + MAXDUR  + " pktsize:" + PACKET_SIZE + " reportgran:" + reportGran + "\n";
+                String testParam = "test:" + test + " duration:" + MAXDUR  + " pktsize:" + PACKET_SIZE + " reportgran:" + reportGran + " randomized:" + randomized + "\n";
                 out.writeBytes(testParam);
                 //testParamServer.split(" ");
             } catch (IOException e){

@@ -6,6 +6,7 @@ import java.util.concurrent.CountDownLatch;
 
 import android.util.Log;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -15,22 +16,24 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-
-
     }
     public void clickbutton(View view) {
-        Log.i("wow", "client clickeed");
         final EditText stream = (EditText)findViewById(R.id.streams);
-
         final EditText packetsize  = (EditText)findViewById(R.id.packetsize);
         final EditText testduration  = (EditText)findViewById(R.id.testduration);
+        final CheckBox randomized_checkbox = (CheckBox)findViewById(R.id.checkBox);
+        final int randomized;
 
+        if(randomized_checkbox.isChecked()){
+            randomized = 1;
+        }
+        else{
+            randomized = 0;
+        }
         Thread t = new Thread(new Runnable() {
 
             @Override
             public void run() {
-
                 // TODO Auto-generated method stub
                 CountDownLatch bwlatch ;
                 BandwidthTestTCP bandwidthTestTCP = new BandwidthTestTCP("10.0.1.5","DOWNLINK",Integer.parseInt(stream.getText().toString()),
@@ -38,28 +41,11 @@ public class MainActivity extends AppCompatActivity {
                         Integer.parseInt(packetsize.getText().toString()),
                         Integer.parseInt(testduration.getText().toString()),
                         1,
-                        true,
+                        randomized, //randomized
                         new CountDownLatch(5));
                 bandwidthTestTCP.startThreads();
-
-//                 public BandwidthTestTCP (String server, //target server
-//                        String test,    //UPLINK or DOWNLINK
-//                int nStreams,   //# of parallel TCP threads
-//                int sPort,      //server port
-//                int pSize,      //message size for test. Use small sizes ~100 for EDGE, etc and larger, ~10k, for wifi
-//                int maxDur,     //duration of test
-//                int reportGran, //granularity of test report, in ms
-//                CountDownLatch bwlatch){
-
                 }
         });
-
-
-
-
-
-
-
             t.start();
     }
 
