@@ -1,5 +1,5 @@
 /*authors: {srikanth,narseo}@icsi.berkeley.edu*/
-package edu.berkeley.icsi.netalyzr.tests.connectivity;
+package com.example.arian.old_speedtest;
 
 import java.io.IOException;
 import java.io.BufferedReader;
