@@ -37,23 +37,25 @@ public class BandwidthTestTCP {
 
     private int NUMARR = 10;
     private int TIMEOUT = 10000;
+    private int randomized = 0;
     private String TAG = "NETALYZR_BWTCP";
     private final boolean debug = true;
-    double[] aggrResults; 
-    double [] aggrBySecResults; 
-    double [][] bySecResults; 
+    double[] aggrResults;
+    double [] aggrBySecResults;
+    double [][] bySecResults;
 
     //Create a stringbuffer to store the output
     private static StringBuffer outputBuffer = null;
-    
+
     public BandwidthTestTCP (String server, //target server
-                            String test,    //UPLINK or DOWNLINK
-                            int nStreams,   //# of parallel TCP threads
-                            int sPort,      //server port
-                            int pSize,      //message size for test. Use small sizes ~100 for EDGE, etc and larger, ~10k, for wifi
-                            int maxDur,     //duration of test
-                            int reportGran, //granularity of test report, in ms
-                            CountDownLatch bwlatch){
+                             String test,    //UPLINK or DOWNLINK
+                             int nStreams,   //# of parallel TCP threads
+                             int sPort,      //server port
+                             int pSize,      //message size for test. Use small sizes ~100 for EDGE, etc and larger, ~10k, for wifi
+                             int maxDur,     //duration of test
+                             int reportGran, //granularity of test report, in ms
+                             int randomized, //client can ask for a fully randomized stream if set to 1
+                             CountDownLatch bwlatch){
 
         if (debug) Log.i(TAG,"\n\nstarting tcp bandwidth test to " + server + "\n\n");
         this.server = server;
@@ -67,6 +69,7 @@ public class BandwidthTestTCP {
         this.aggrResults = new double[N_STREAMS];
         this.aggrBySecResults = new double[MAXDUR/reportGran];
         this.bySecResults = new double[N_STREAMS][MAXDUR/reportGran];
+        this.randomized = randomized;
         if (debug) Log.i(TAG,"init done");
     }
 
@@ -76,14 +79,14 @@ public class BandwidthTestTCP {
         CountDownLatch latch = new CountDownLatch(N_STREAMS);
 
         Arrays.fill(aggrResults, -1.0);
-        
+
         try{
-            
+
             ExecutorService executorService = Executors.newFixedThreadPool(N_STREAMS);
             List<Future<String>> futures= new ArrayList<Future<String>>();
             for(int i = 0; i < N_STREAMS; i++) {
                 socket[i] = new Socket(this.server,PORT);
-                futures.add(executorService.submit(new Client(socket[i],i,latch,test,MAXDUR,PACKET_SIZE)));
+                futures.add(executorService.submit(new Client(socket[i],i,latch,test,MAXDUR,PACKET_SIZE,randomized)));
             }
 
             outputBuffer = new StringBuffer();
@@ -100,22 +103,22 @@ public class BandwidthTestTCP {
                 }
                 executorService.shutdown();
 
-                }
+            }
             catch (Exception e) {
                 e.printStackTrace();
-            } 
-            
+            }
+
         } catch(IOException e){
             if (debug) Log.i(TAG,"Could not connect to server" + e.getMessage(),e);
             outputBuffer.append("");
         }
-        
+
         if (debug) Log.i(TAG,"Done threads.");
-        
-        bwlatch.countDown(); 
+
+        bwlatch.countDown();
         return outputBuffer.toString();
     }
-    
+
     private class Client implements Callable<String>{
         private Socket socket;
         private int clientid;
@@ -123,21 +126,24 @@ public class BandwidthTestTCP {
         private int PACKET_SIZE;
         private CountDownLatch latch;
         private String test;
+        private int randomized;
 
-        public Client(Socket socket, 
-                        int clientid, 
-                        CountDownLatch latch, 
-                        String test, 
-                        int MAXDUR, 
-                        int PACKET_SIZE){
+        public Client(Socket socket,
+                      int clientid,
+                      CountDownLatch latch,
+                      String test,
+                      int MAXDUR,
+                      int PACKET_SIZE,
+                      int randomized){
             this.socket = socket;
             this.clientid = clientid;
             this.latch = latch;
             this.test = test;
             this.MAXDUR = MAXDUR;
             this.PACKET_SIZE = PACKET_SIZE;
+            this.randomized = randomized;
         }
-        
+
         public String call(){
             StringBuffer returnData = new StringBuffer();
             try {
@@ -156,7 +162,7 @@ public class BandwidthTestTCP {
                 In = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 in = new DataInputStream(socket.getInputStream());
                 out = new DataOutputStream(socket.getOutputStream());
-                String testParam = "test:" + test + " duration:" + MAXDUR  + " pktsize:" + PACKET_SIZE + " reportgran:" + reportGran + "\n";
+                String testParam = "test:" + test + " duration:" + MAXDUR  + " pktsize:" + PACKET_SIZE + " reportgran:" + reportGran + " randomized:" + randomized + "\n";
                 out.writeBytes(testParam);
                 //testParamServer.split(" ");
             } catch (IOException e){
@@ -164,9 +170,9 @@ public class BandwidthTestTCP {
                 latch.countDown();
                 //TODO: Srikanth, does it return anything here???
                 return "";
-                }
-            
-            if (debug) Log.i(TAG, "client in " + test + " mode");         
+            }
+
+            if (debug) Log.i(TAG, "client in " + test + " mode");
             if (test.equals("UPLINK")){
                 returnData.append(sendData(In,out,clientid));
                 if (debug) Log.i(TAG, test);
@@ -174,7 +180,7 @@ public class BandwidthTestTCP {
             else if(test.equals("DOWNLINK")){
                 returnData.append(recvData(in,out,clientid));
             }
-            if (debug) Log.i(TAG, "Finished " + test + " " + clientid);         
+            if (debug) Log.i(TAG, "Finished " + test + " " + clientid);
 
             try{
                 socket.close();
@@ -193,7 +199,7 @@ public class BandwidthTestTCP {
             aggrResults[clientid] = -1.0;
             return "";
         }
-        
+
         //char fillerStr = '1';
         byte[][] messageArr = new byte[NUMARR][PACKET_SIZE];
         for (int i=0;i<NUMARR;i++){
@@ -213,7 +219,7 @@ public class BandwidthTestTCP {
         } catch (IOException e1){
             aggrResults[clientid] = -1.0;
             return "";
-            }
+        }
         int cntMsg = 0;
         while (true){
             try {
@@ -228,12 +234,12 @@ public class BandwidthTestTCP {
                 aggrResults[clientid] = -1.0;
                 if (debug) Log.i(TAG,"write data IOE" + clientid, e);
                 return "";
-                } catch (Exception e){
-                    aggrResults[clientid] = -1.0;
-                    if (debug) Log.i(TAG,"general xception " + clientid, e);
-                    return "";
-                    
-                }
+            } catch (Exception e){
+                aggrResults[clientid] = -1.0;
+                if (debug) Log.i(TAG,"general xception " + clientid, e);
+                return "";
+
+            }
             currentTime = System.currentTimeMillis();
             if (currentTime - startTime > MAXDUR){
                 break;
@@ -247,7 +253,7 @@ public class BandwidthTestTCP {
         } catch (IOException e) {
             this.aggrResults[clientid] = -1.0;
             return "";
-            }
+        }
         if (debug) Log.i(TAG, "Sent " + totBytes + " bytes");
         String summary = "";
         try{
@@ -265,7 +271,7 @@ public class BandwidthTestTCP {
         }
         return summary;
     }
-    
+
     public String recvData(DataInputStream in, DataOutputStream out, int clientid){
         int bytesRead = 0;
         long startTime = -1;
@@ -282,10 +288,10 @@ public class BandwidthTestTCP {
         long prevCheck = 0;
         double aggrTput = -1.0;
         String summary = "";
-        
+
         try{
             while (!end){
-                
+
                 bytesRead = in.read(messageArr);
                 if(bytesRead > 0){
                     if (!start && messageArr[0] == '~'){
@@ -319,7 +325,9 @@ public class BandwidthTestTCP {
                     }
                 }
             }
-            if (debug) Log.i(TAG, "End: Total received " + totalBytes + " in " + (endTime - startTime) + " msec");
+            if (debug) {
+                Log.i(TAG, "End: Total received " + totalBytes + " in " + (endTime - startTime) + " msec" + " Throughput: "+( ((double)totalBytes)*8/(((double)(endTime)-(double)(startTime))) )/1000 +"Mbps");
+            }
         } catch(SocketTimeoutException e){
             if (debug) Log.i(TAG, "Couldn't read data");
             aggrResults[clientid] = -1.0;
@@ -330,22 +338,22 @@ public class BandwidthTestTCP {
             return "";
         } finally{
             if (start && end){
-                    DecimalFormat df = new DecimalFormat();
-                    df.setMaximumFractionDigits(2); 
-                    df.setGroupingUsed(false);
-                    aggrTput = (double)(totalBytes)*8.0/(endTime - startTime);
-                    summary = "" + totalBytes + " " + (endTime - startTime)/1000.0 + " " + df.format(aggrTput) + " ";
-                    for (int i=0;i<bySecResults[clientid].length;i++){
-                        summary = summary + i + ":" + df.format(bySecResults[clientid][i])  + ";";
-                    }
-                    try {
-                        out.writeBytes(summary);
-                    } catch (IOException e) {
-                        if (debug) Log.i(TAG, "Couldn't send summary to server.");
-                    }
-                    aggrResults[clientid] = aggrTput;
-                    if (debug) Log.i(TAG,summary);
-                    return summary;
+                DecimalFormat df = new DecimalFormat();
+                df.setMaximumFractionDigits(2);
+                df.setGroupingUsed(false);
+                aggrTput = (double)(totalBytes)*8.0/(endTime - startTime);
+                summary = "" + totalBytes + " " + (endTime - startTime)/1000.0 + " " + df.format(aggrTput) + " ";
+                for (int i=0;i<bySecResults[clientid].length;i++){
+                    summary = summary + i + ":" + df.format(bySecResults[clientid][i])  + ";";
+                }
+                try {
+                    out.writeBytes(summary);
+                } catch (IOException e) {
+                    if (debug) Log.i(TAG, "Couldn't send summary to server.");
+                }
+                aggrResults[clientid] = aggrTput;
+                if (debug) Log.i(TAG,summary);
+                return summary;
             }
             else{
                 if (debug) Log.i(TAG, "Invalid Test");
