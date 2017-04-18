@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectModuleManager">
-    <modules>
-      <module fileurl="file://$PROJECT_DIR$/Android-Tcp-Speedtest/Android-Tcp-Speedtest.iml" filepath="$PROJECT_DIR$/Android-Tcp-Speedtest/Android-Tcp-Speedtest.iml" />
-      <module fileurl="file://$PROJECT_DIR$/Old_Speedtest.iml" filepath="$PROJECT_DIR$/Old_Speedtest.iml" />
-    </modules>
-  </component>
-</project>

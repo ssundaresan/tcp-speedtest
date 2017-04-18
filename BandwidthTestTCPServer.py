@@ -100,7 +100,7 @@ class StreamHandler(SocketServer.StreamRequestHandler):
   def sendData(self,msgArr):
     global random_packet_size
     time.sleep(0.1)
-    print "DW"
+    # print "DW"
     #fillerStr = "1"
     desired_msgArr = []
     # if the client does not ask for fully randomized stream
@@ -113,13 +113,14 @@ class StreamHandler(SocketServer.StreamRequestHandler):
       # if we have generated 1MB random file and the packet size is 10Mb
       # we will staple 10 , 1MB packets
           numberof_small_pkts = self.PACKET_SIZE/random_packet_size
+          # print(numberof_small_pkts)
           rest_of_packet = self.PACKET_SIZE - numberof_small_pkts*(random_packet_size)
           for item in msgArr:
               desired_msgArr.append(numberof_small_pkts*item[:self.PACKET_SIZE])
           if(rest_of_packet != 0 ):
             for j in range(len(desired_msgArr)): # generate 1 MB of random stream
                     desired_msgArr[j]= desired_msgArr[j]+ ''.join(random.choice(string.letters+string.digits)  for i in range(rest_of_packet))
-          print(len(desired_msgArr[0]))
+          # print(len(desired_msgArr[0]))
 
     # Client wants fully randomized stream
     else:
@@ -206,7 +207,7 @@ if __name__ == "__main__":
   random_packet_size = 1000000 #1MB 
   for i in range(10): # generate a random_packet_size Bytes of random stream
       msgArr.append(''.join(random.choice(string.letters+string.digits) for i in range(random_packet_size)))
-  print('created packet, it is now safe to connect')
+  print('Created Random packet, it is now safe to connect')
   #SocketServer.socket.SO_SNDBUF = 146988
   #SocketServer.socket.SO_RCVBUF = 146988
   server = ThreadedStreamServer((HOST,PORT),StreamHandler)
